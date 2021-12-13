@@ -1,0 +1,93 @@
+[
+	{
+		"id": "http://zotero.org/groups/2291807/items/W49VWK2W",
+		"type": "article-journal",
+		"container-title": "International Journal of Population Data Science",
+		"DOI": "10.23889/ijpds.v5i1.1338",
+		"ISSN": "2399-4908",
+		"issue": "1",
+		"language": "en",
+		"note": "number: 1",
+		"source": "ijpds.org",
+		"title": "Childhood adversity, mental health and suicide (CHASE): a protocol for a longitudinal case-control linked data study",
+		"title-short": "Childhood adversity, mental health and suicide (CHASE)",
+		"URL": "https://ijpds.org/article/view/1338",
+		"volume": "5",
+		"author": [
+			{
+				"family": "Dougall",
+				"given": "Nadine J."
+			},
+			{
+				"family": "Savinc",
+				"given": "Jan"
+			},
+			{
+				"family": "Maxwell",
+				"given": "Margaret"
+			},
+			{
+				"family": "Karatzias",
+				"given": "Thanos"
+			},
+			{
+				"family": "O'Connor",
+				"given": "Rory C."
+			},
+			{
+				"family": "Williams",
+				"given": "Brian"
+			},
+			{
+				"family": "Grandison",
+				"given": "Graeme"
+			},
+			{
+				"family": "John",
+				"given": "Ann"
+			},
+			{
+				"family": "Cheyne",
+				"given": "Helen"
+			},
+			{
+				"family": "Fyvie",
+				"given": "Claire"
+			},
+			{
+				"family": "Bisson",
+				"given": "Jonathan I."
+			},
+			{
+				"family": "Hibberd",
+				"given": "Carina"
+			},
+			{
+				"family": "Abbott-Smith",
+				"given": "Susan"
+			},
+			{
+				"family": "Nolan",
+				"given": "Liz"
+			}
+		],
+		"accessed": {
+			"date-parts": [
+				[
+					"2020",
+					6,
+					1
+				]
+			]
+		},
+		"issued": {
+			"date-parts": [
+				[
+					"2020",
+					4,
+					2
+				]
+			]
+		}
+	}
+]

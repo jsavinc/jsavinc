@@ -1,0 +1,105 @@
+<p>I recently ran into an issue creating animated plots using {gganimate} in the <a href="https://www.isdscotland.org/products-and-services/edris/use-of-the-national-safe-haven/">National Safe Haven environment</a> I use for research at <a href="https://www.scadr.ac.uk/">SCADR</a>, where the resulting files were either broken or could not be displayed, and I figured it was safer to produce images that definitely worked and use them to build an animation on a different computer. I think of this as <em>bake-at-home animations</em> (as in those partly-baked baguettes you’re meant to finish baking at home).</p>
+<p>This workaround involves creating animations in two steps:</p>
+<ol style="list-style-type: decimal">
+<li>Render the {gganimate}-created animation frames as separate images</li>
+<li>Build an animated <code>.gif</code> or <code>.mp4</code> file from the individual frames</li>
+</ol>
+<p>(in some situations I think a video file like <code>.mp4</code> works better, because you can pause the animation and seek forwards or backwards to look at individual steps)</p>
+<div id="packages-used" class="section level1" number="1">
+<h1 number="1"><span class="header-section-number">1</span> Packages used</h1>
+<ul>
+<li><a href="https://ggplot2.tidyverse.org/">{ggplot2}</a> for making plots</li>
+<li><a href="https://gganimate.com/">{gganimate}</a> for creating animations from {ggplot2} plots</li>
+<li><a href="https://github.com/r-rust/gifski">{gifski}</a> for saving a <code>.gif</code> from a set of input <code>.png</code> files</li>
+<li><a href="https://github.com/ropensci/av">{av}</a> for saving an <code>.mp4</code> video (other formats are supported!) from a set of input <code>.png</code> files</li>
+<li><a href="http://www.rforge.net/png/">{png}</a> to load a <code>.png</code> file and read the dimensions (width &amp; height)</li>
+</ul>
+<p>All of the above were available on CRAN as of the time of writing.</p>
+</div>
+<div id="step-0-making-an-animation" class="section level1" number="2">
+<h1 number="2"><span class="header-section-number">2</span> Step 0: Making an animation</h1>
+<p>I made up a quick plot based on examples from the <a href="https://gganimate.com/">{gganimate}</a> package:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(gganimate)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>animated_plot <span class="ot">&lt;-</span> </span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(mtcars, <span class="fu">aes</span>(<span class="at">x =</span> wt, <span class="at">y =</span> hp, <span class="at">colour =</span> <span class="fu">as.factor</span>(cyl))) <span class="sc">+</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">transition_states</span>(cyl, <span class="at">transition_length =</span> <span class="dv">3</span>, <span class="at">state_length =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">enter_fade</span>() <span class="sc">+</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">exit_fade</span>() <span class="sc">+</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;Cyl: {closest_state}&quot;</span>)</span></code></pre></div>
+</div>
+<div id="step-1-rendering-individual-frames" class="section level1" number="3">
+<h1 number="3"><span class="header-section-number">3</span> Step 1: rendering individual frames</h1>
+<p>For this step, we use the <code>animate()</code> function and specify the <code>file_renderer()</code> function to save the individual frames as separate images.</p>
+<p>Because we’ll be building an animation from these frames later, we need to design for the length of the animation required and the number of frames; {gganimate} can do some neat stuff like rendering smooth transitions between plot elements, and the more frames you use, the smoother the animation will be (at the cost of bigger file size). You will want to experiment with the values a bit depending on your plot.</p>
+<p><code>animate()</code> has default arguments <code>fps</code> (10 frames per second) and <code>nframes</code> (100), and can also take a <code>duration</code> argument (10 seconds when using the defaults, nframes/fps). By specifying two of the three arguments above we can modify how many frames we end up with and how long the animation will be. I suggest you just change <code>fps</code> and <code>duration</code>, and let <code>animate()</code> calculate <code>nframes</code> - this is because in the next step, to build a <code>.gif</code> file from frames, you’ll need to specify how long each frame should be displayed for (1/<code>fps</code>), or to build an <code>.mp4</code> file, you’ll need to specify the <code>fps</code>.</p>
+<p>To change the size of the image, you can pass the <code>width</code>,<code>height</code>,<code>units</code>, and <code>res</code> (resolution) parameters to <code>animate()</code> like you would for <code>ggsave()</code>.</p>
+<p>The default image format is <code>.png</code>, which should be fine in most cases!</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>duration <span class="ot">=</span> <span class="dv">10</span>  <span class="co"># set up duration &amp; fps to suit your needs</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>fps <span class="ot">=</span> <span class="dv">10</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="fu">animate</span>(</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">plot =</span> animated_plot,</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="co"># width = X,  # you can specify width, height, units and resolution like in ggsave()</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="co"># height = Y,</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="co"># units = &quot;cm&quot;,</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="co"># res = 300,</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">fps =</span> fps,</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">duration =</span> duration,</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">renderer =</span> <span class="fu">file_renderer</span>(</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">dir =</span> <span class="st">&quot;directory_for_individual_frames&quot;</span>,  <span class="co"># a directory where the frames will go</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">prefix =</span> <span class="st">&quot;frames_for_animation&quot;</span>,  <span class="co"># frames will be named &quot;frames_for_animation0001.png&quot; and so on</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="at">overwrite =</span> <span class="cn">TRUE</span>  <span class="co"># I like this to be able to repeatedly regenerate the animations as I test settings</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+<div id="step-2-building-animation-from-individual-frames" class="section level1" number="4">
+<h1 number="4"><span class="header-section-number">4</span> Step 2: building animation from individual frames</h1>
+<p>For this step, I’m using the {gifski} package to make a <code>.gif</code> file, and {av} to make an <code>.mp4</code> video. Here we’ll be reusing the <code>fps</code> and <code>duration</code> parameters from step 1 above.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="do">## load the paths to the individual frames</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>frames <span class="ot">&lt;-</span> </span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list.files</span>(</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;directory_for_individual_frames&quot;</span>,  <span class="co"># whatever dir your individual frames are in</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">pattern =</span> <span class="st">&quot;png&quot;</span>, <span class="co"># I&#39;ve  added the &quot;png&quot; filter on files in case you&#39;ve put anything else in there</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">full.names =</span> <span class="cn">TRUE</span>  <span class="co"># this is required to provide absolute paths</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  )</span></code></pre></div>
+<div id="gif" class="section level2" number="4.1">
+<h2 number="4.1"><span class="header-section-number">4.1</span> <code>.gif</code></h2>
+<p>Let’s build the <code>.gif</code> first, which is slightly complex if you intend the <code>.gif</code> to preserve the dimensions of the individual frames - if not, you can just set the <code>width</code> &amp; <code>height</code> parameters in <code>gifski()</code> to whatever you need.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(gifski)</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="do">## work out the dimensions (in pixels) of the png files</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>image_data <span class="ot">&lt;-</span> png<span class="sc">::</span><span class="fu">readPNG</span>(<span class="at">source =</span> frames[<span class="dv">1</span>])  <span class="co"># read first frame</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>image_width <span class="ot">&lt;-</span> <span class="fu">dim</span>(image_data)[<span class="dv">1</span>]</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>image_height <span class="ot">&lt;-</span> <span class="fu">dim</span>(image_data)[<span class="dv">2</span>]</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(image_data)  <span class="co"># remove from memory, no longer needed</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="fu">gifski</span>(</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">png_files =</span> frames</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>  <span class="co"># I&#39;ve also added the &quot;png&quot; filter on files just in case</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">gif_file =</span> <span class="st">&quot;animation.gif&quot;</span>),</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>  width <span class="ot">=</span> image_width,</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>  height <span class="ot">=</span> image_height,</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>  delay <span class="ot">=</span> <span class="dv">1</span><span class="sc">/</span>fps  <span class="co"># alternatively if you&#39;ve specified nframes and duration this would be `duration/nframes`</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a><span class="er">)</span></span></code></pre></div>
+<p>Note that the use of <code>png::readPNG()</code> above isn’t optimal, since it loads the entire image into memory, resulting in a rather large object of dimensions width X height X colour channels; this is overkill, but I couldn’t find any packages that would just read the image metadata. On most modern computers and with reasonably sized plots this shouldn’t be too much of an issue (I hope!).</p>
+</div>
+<div id="mp4" class="section level2" number="4.2">
+<h2 number="4.2"><span class="header-section-number">4.2</span> <code>.mp4</code></h2>
+<p>Making an <code>.mp4</code> video is simpler in comparison:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(av)</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="fu">av_encode_video</span>(</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">input =</span> frames,</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">framerate =</span> fps,  <span class="co"># alternatively, nframes/duration</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">output =</span> <span class="st">&quot;animation.mp4&quot;</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+</div>
+<div id="conclusion" class="section level1" number="5">
+<h1 number="5"><span class="header-section-number">5</span> Conclusion</h1>
+<p>You should now have a directory of individual frames, and a <code>.gif</code> and/or <code>.mp4</code> file. As is often the case, I ended up spending most of my time trying to work out how to preserve the image dimensions between the original files and the animations, a detail I only noticed when the resulting animations were a lot smaller than animations saved using <code>gganimate::save_anim()</code> directly. Another thing I’ve learned from this is that the syntax for <code>animate()</code> and <code>file_renderer()</code> isn’t very straightforward and it helps to go through the documentation to see which arguments go where!</p>
+</div>

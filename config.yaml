@@ -1,0 +1,51 @@
+baseurl: https://jsavinc.github.io/
+languageCode: en-us
+title: Jan Savinc's personal website
+theme: blackburn
+author: Jan Savinc
+copyright: 'Licence: <a href="https://creativecommons.org/licenses/by-sa/2.0/">CC BY-SA</a>'
+canonifyurls: yes
+paginate: 10
+rssLimit: 10
+enableEmoji: true
+indexes:
+  tag: tags
+  topic: topics
+params:
+  brand: Jan Savinc
+  dateFormat: 02 Jan 2006
+  # disqus: Your Disqus shortname
+  # googleAnalytics: Your Google Analytics tracking ID
+  highlightjs: androidstudio
+  subtitle: Stuff I've done for work and elsewhere
+permalinks:
+  post: "/:year/:month/:day/:slug/"
+ignoreFiles: ["\\.Rmd$", "\\.Rmarkdown$", "_cache$", "\\.knit\\.md$", "\\.utf8\\.md$"]
+menu:
+  main:
+    - identifier: home
+      name: Home
+      pre: <i class='fa fa-home fa-fw'></i>
+      url: /
+      weight: 1
+    - identifier: post
+      name: Blog
+      pre: <i class='fa fa-list fa-fw'></i>
+      url: /post/
+      weight: 2
+    - identifier: about
+      name: About
+      pre: <i class='fa fa-user fa-fw'></i>
+      url: /about/
+      weight: 3
+    - identifier: publications
+      name: Publications
+      pre: <i class='fa fa-file fa-fw'></i>
+      url: /publications/
+      weight: 4
+social:
+  email: 'j.savinc@napier.ac.uk'
+  orcid : '0000-0002-0894-8571'
+  github: 'jsavinc'
+  twitter: 'jsavinc'
+  stackoverflow: '2296603'
