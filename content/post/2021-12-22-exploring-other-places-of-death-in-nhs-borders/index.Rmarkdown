@@ -1,0 +1,196 @@
+---
+title: "Exploring 'Other' places of death in NHS Borders"
+author: Jan Savinc
+date: '2021-12-22'
+slug: exploring-other-places-of-death-in-nhs-borders
+categories: []
+tags: []
+description: ''
+draft: yes
+topics: []
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = FALSE)  # set up all chunks to show but none to actually compute
+```
+
+This is a follow-up to [a blog post I wrote on the SCADR website](https://www.scadr.ac.uk/blog-series-dramatic-increase-deaths-home-no8), where I looked at how Place of death varied across the 14 Health boards in Scotland. In the [data published by National Records Scotland](https://www.nrscotland.gov.uk/statistics-and-data/statistics/statistics-by-theme/vital-events/general-publications/weekly-and-monthly-data-on-births-and-deaths/deaths-involving-coronavirus-covid-19-in-scotland), 4 different categories for Place of death are reported: Hospital, Care home, Home & other non-institutional setting, and *'Other'*. Out of the 14 Health boards, 'Other' represents a significant number of deaths only in NHS Borders, so I'll have a look the actual institutions that were included under the 'Other' label.
+
+Deaths in 'Other' places accounted for up to nearly 12% of annual deaths in NHS Borders, when in other Health boards they typically represent less than 1% per year. I assumed that 'Other' places were mainly prisons and schools, but that is unlikely to explain the difference between Health boards, and the high percentage in Borders:
+
+| year|   N|Percent |
+|----:|---:|:-------|
+| 2015|  29|2.1%    |
+| 2016| 145|11.4%   |
+| 2017| 155|11.7%   |
+| 2018| 154|10.7%   |
+| 2019| 135|10.4%   |
+| 2020| 117|8.2%    |
+| 2021| 111|8.4%    |
+
+Table: Number of deaths reported as having occurred in 'Other' places in NHS Borders and their percentage of all deaths in the health board; the 2021 data are incomplete and include weeks 1-49.
+
+# Packages used
+
+```{r, warning=FALSE}
+library(tidyverse)  # I'm using tidyverse for cleaning data
+library(readxl)  # for reading excel spreadsheets
+library(janitor)  # used for cleaning data, in this case for renaming columns easily
+library(lubridate)  # for working with dates
+library(knitr)  # to use the 'kable' function for displaying nice tables
+```
+
+
+# Downloading list of institutions
+
+The [NRS's methodology paper on reporting weekly deaths due to Covid-19](https://www.nrscotland.gov.uk/files//statistics/covid19/covid-deaths-21-methodology.pdf) explains the 'Other' category as being simply anything that isn't a care home, hospital, or home or a non-institutional setting (hospices are included partly under 'Hospital' and partly under 'Care home' in this definition). I have found two listings of NHS-related institutions online: one is available on the [National Reference Files website](https://www.isdscotland.org/Products-and-Services/Data-Definitions-and-References/National-Reference-Files/), where the institutions are termed **Locations**; the NRS also publish a list of institutions with an included institution type (e.g. hospital, school, admin office), which will help in the investigation; the list is available on the [NRS background to their vital events statistics website](https://www.nrscotland.gov.uk/statistics-and-data/statistics/statistics-by-theme/vital-events/general-background-information/code-lists-used-in-vital-events-statistics), specifically at [the following link: Institutions](https://www.nrscotland.gov.uk/files//statistics/vital-events/institution-codes-october-2021.xlsx).
+
+
+```{r, eval=TRUE}
+## download file
+institutions_file_url <- "https://www.nrscotland.gov.uk/files//statistics/vital-events/institution-codes-october-2021.xlsx"
+institutions_file_path <- "./institution-codes-october-2021.xlsx"
+
+if (!file.exists(institutions_file_path)) download.file(url = institutions_file_url, destfile = institutions_file_path, method = "curl")
+```
+
+# Categorising institutions
+
+The institutions list published by the NRS includes a column indicating institution type, and a table explaining what the types represent:
+
+```{r}
+institution_types <- read_excel(path = institutions_file_path, sheet = 1, range = "E7:G21", col_names = c("institution_type_code","institution_type","institution_type_detail"))
+```
+
+```{r, include=FALSE, eval=TRUE}
+institution_types %>%
+  kable(caption = "Institution types as listed in the NRS-provided data.")
+```
+
+In addition to these I also had the following listing from a colleague's email, some of which weren't in the NRS-provided list above (I used the excellent {datapasta} package to copy these to `r`):
+
+```{r}
+institution_types_from_email <-
+  c("A - Admin Office",
+     "B - Health Centre, GP Surgery",
+     "C - Clinic Premises",
+     "E - Extra-mural clinic",
+     "H - NHS Hospital",
+     "J - Joint User Hospital",
+     "K - Contractual Hospital",
+     "L - School",
+     "M - Non NHS Maternity",
+     "N - Non-Institutional, e.g. Domiciliary",
+     "P - Prison",
+     "Q - School",
+     "R - Home for the Elderly",
+     "S - Other Home",
+     "T - Miscellaneous Premises",
+     "V - Private Nursing Home, Private Hospital etc",
+     "W - School") %>%
+  tibble(code_from_email = .) %>%
+  separate(col = code_from_email, into = c("institution_type_code","institution_type"), sep = " - ", remove = TRUE)
+```
+
+The two lists can now be merged. I used `dplyr::anti_join()` to remove from the second list all codes that already appear in the first to remove duplicates:
+
+```{r}
+institution_types <-
+  bind_rows(
+    institution_types,
+    institution_types_from_email %>% anti_join(institution_types, by="institution_type_code")
+  ) %>%
+  arrange(institution_type_code)
+```
+
+# Loading institutions
+
+The list of institutions also includes a column indicating the health board, which we can use to only look at data for NHS Borders. This involved some data cleaning which is outlined below:
+
+```{r, warning=FALSE}
+hb_codes <- read_excel(path = institutions_file_path, sheet = 1, range = "A7:B21", col_names = c("hb_code","hb"))  # load the table linking each code to its health board
+
+institutions <-
+  read_excel(path = institutions_file_path, sheet = 1, skip = 28, col_types	= rep(c("text","date"), each = 3)) %>%
+  clean_names %>%
+  filter(nchar(location_code)==5) %>%  # extract only actual entries, ignoring all the headers & formatting rows
+  mutate(
+    institution_type_code = str_sub(location_code, 5, 5),
+    hb_code = str_sub(location_code, 1, 1)
+  ) %>% 
+  left_join(institution_hb_codes, by = "hb_code") %>%
+  left_join(institution_types %>% select(institution_type, institution_type_code), by = "institution_type_code")
+```
+
+## 'Other' place of death
+
+From the methodology paper:
+
+> For the purposes of NRS death statistics, hospitals are counted as codes ending in H, care homes as codes ending in J, K, R, S, T, U or V, home / non-institution codes
+ending in N and other institution is everything else.
+
+We can now label the institutions with place of death:
+
+```{r}
+codes_hospital <- c("H")
+codes_home <- c("N")
+codes_care_home <- c("J", "K", "R", "S", "T", "U","V")
+
+institutions <-
+  institutions %>%
+  mutate(place_of_death = case_when(
+    institution_type_code %in% codes_hospital ~ "Hospital",
+    institution_type_code %in% codes_home ~ "Home & other non-institutional setting",
+    institution_type_code %in% codes_care_home ~ "Care Home",
+    TRUE ~ "Other"
+  ))
+```
+
+## Final list of institutions to investigate
+
+For the exploration, I'll be looking at institutions that met the following criteria:
+
+* located in NHS Borders
+* operating in the 2015-2021 period (i.e. not closed before 2015!)
+* categorised as 'Other'
+
+<!-- The opening and closure date for each institution is also listed in addition to their names & types. 'Other' deaths were 2% in 2015 and went up to 11% in 2016 - we can make the task of investigating the list of institutions easier if we remove all institutions that closed in 2015 or earlier, and look only at those that were relevant for 2016 and later. -->
+
+```{r}
+institutions_borders <-
+  institutions %>%
+  filter(hb == "Borders") %>%
+  filter(place_of_death == "Other") %>%
+  filter(year(location_closure_date) > 2015 | is.na(location_closure_date))
+```
+
+
+# Exploring the institutions
+
+In total, we have `r nrow(institutions_borders)` institutions - that's a lot to review manually, so we can see if they can be grouped in a meaningful way:
+
+```{r}
+institutions_borders %>% count(institution_type_code, institution_type)
+```
+
+It's unlikely that schools (types L,Q,W) contributed much to the number of deaths, though they represent a large chunk of the institutions - it's more likely that it's codes B,C,E representing health centres & clinics. There is also code Z, for which we don't have a definition.
+
+## Code Z
+
+```{r}
+institutions_borders %>%
+  filter(institution_type_code=="Z") %>%
+  select(location_name, matches("date"))
+```
+
+These all represent halls & community centres, and they were added only very recently, so it's unlikely they contributed much!
+
+## Codes B,C,E
+
+```{r}
+institutions_borders %>%
+  filter(institution_type_code %in% c("B")) %>%
+  select(location_name, institution_type_code, institution_type, matches("date"))
+```
+
